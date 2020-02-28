@@ -114,6 +114,9 @@ void deinitRuntime(RuntimeState* state) {
   if (lastRuntime)
     InitOrDeinitGlobalVariables(DEINIT_GLOBALS, state->memoryState);
   WorkerDeinit(state->worker);
+  if (isMainThread) {
+    TerminateAllWorkers();
+  }
   DeinitMemory(state->memoryState);
   konanDestructInstance(state);
 }

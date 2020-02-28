@@ -135,6 +135,12 @@ class Worker {
 
   KNativePtr name() const { return name_; }
 
+  pthread_t thread() const { return thread_; }
+
+  void set_thread(pthread_t thread) {
+    thread_ = thread;
+  }
+
  private:
   KInt id_;
   KStdDeque<Job> queue_;
@@ -147,6 +153,7 @@ class Worker {
   // If errors to be reported on console.
   bool errorReporting_;
   bool terminated_;
+  pthread_t thread_ = 0;
 };
 
 #else  // WITH_WORKERS
@@ -432,6 +439,27 @@ class State {
     return currentVersion_;
   }
 
+  bool terminateAllRunningWorkers() {
+    std::vector<pthread_t> threads;
+    {
+      Locker locker(&lock_);
+      for (const auto& kv : workers_) {
+          auto* worker = kv.second;
+          threads.push_back(worker->thread());
+          Job job;
+          job.kind = JOB_TERMINATE;
+          job.terminationRequest.future = konanConstructInstance<Future>(nextFutureId());;
+          job.terminationRequest.waitDelayed = false;
+          worker->putJob(job, /* inFront = */ true);
+      }
+    }
+    if (threads.empty())
+      return false;
+    for (pthread_t thread: threads)
+      pthread_join(thread, nullptr);
+    return true;
+  }
+
   // All those called with lock taken.
   KInt nextWorkerId() { return currentWorkerId_++; }
   KInt nextFutureId() { return currentFutureId_++; }
@@ -512,6 +540,7 @@ KInt startWorker(KBoolean errorReporting, KRef customName) {
   if (worker == nullptr) return -1;
   pthread_t thread = 0;
   pthread_create(&thread, nullptr, workerRoutine, worker);
+  worker->set_thread(thread);
   return worker->id();
 }
 
@@ -677,6 +706,17 @@ Worker* WorkerSuspend() {
 void WorkerResume(Worker* worker) {
 #if WITH_WORKERS
   ::g_worker = worker;
+#endif  // WITH_WORKERS
+}
+
+void TerminateAllWorkers() {
+#if WITH_WORKERS
+  // TODO: This may be an infinite cycle. Make sure it does not happen.
+  while (true) {
+      bool hadWorkers = theState()->terminateAllRunningWorkers();
+      if (!hadWorkers)
+        break;
+  }
 #endif  // WITH_WORKERS
 }
 

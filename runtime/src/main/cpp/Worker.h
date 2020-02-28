@@ -12,4 +12,6 @@ void WorkerDeinit(Worker* worker);
 Worker* WorkerSuspend();
 void WorkerResume(Worker* worker);
 
+void TerminateAllWorkers();
+
 #endif // RUNTIME_WORKER_H
