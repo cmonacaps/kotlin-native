@@ -194,18 +194,13 @@ private fun InteropCallContext.convertCPointerToNativePtr(cPointer: IrExpression
 }
 
 
-private fun InteropCallContext.writePointerToMemory(nativePtr: IrExpression, value: IrExpression): IrExpression {
+private fun InteropCallContext.writePointerToMemory(
+        nativePtr: IrExpression,
+        value: IrExpression,
+        pointerType: IrType
+): IrExpression {
     val valueToWrite = when {
-        value.type.isCPointer() -> convertCPointerToNativePtr(value)
-        // Special case of null value
-        // TODO: Test!
-        value.type.classOrNull == symbols.nothing -> with(builder) {
-            irBlock(resultType = context.irBuiltIns.longType) {
-                // Preserve side-effects
-                +value
-                +irLong(0)
-            }
-        }
+        pointerType.isCPointer() -> convertCPointerToNativePtr(value)
         else -> error("Unsupported pointer type")
     }
     return writeValueToMemory(nativePtr, valueToWrite)
@@ -293,7 +288,7 @@ private fun InteropCallContext.generateMemberAtAccess(callSite: IrCall): IrExpre
             when {
                 type.isCEnumType() -> writeEnumValueToMemory(fieldPointer, value)
                 type.isStoredInMemoryDirectly() -> writeValueToMemory(fieldPointer, value)
-                type.isCPointer() -> writePointerToMemory(fieldPointer, value)
+                type.isCPointer() -> writePointerToMemory(fieldPointer, value, type)
                 else -> error("Cannot set field of type ${type.getClass()?.name}")
             }
         }
