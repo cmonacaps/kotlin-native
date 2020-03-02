@@ -40,7 +40,7 @@ class NativeDep extends DefaultTask {
 
     @TaskAction
     void downloadAndExtract() {
-        def downloader = new DependencyProcessor(baseOutDir, konanPropertiesLoader, baseUrl, false)
+        def downloader = new DependencyProcessor(baseOutDir, konanPropertiesLoader, baseUrl, false, ArchiveType.systemDefault)
         downloader.showInfo = false
         downloader.run()
     }
